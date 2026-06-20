@@ -85,8 +85,6 @@ public class ClientRequestServiceImpl implements ClientRequestService {
     }
 
     /**
-     * Bug #1 (robust download retry loop) + Bug #7 (BUSY → wait and retry).
-     *
      * Protocol:
      * 1. Ask aggregator for a token + target node address.
      * 2. If BUSY (target node occupied), wait and retry from step 1.
@@ -258,7 +256,7 @@ public class ClientRequestServiceImpl implements ClientRequestService {
     }
 
     /**
-     * Bug #2: After registration, send all existing local resources to the
+     * After registration, send all existing local resources to the
      * aggregator.
      */
     @Override
