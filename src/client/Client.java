@@ -10,4 +10,17 @@ public class Client {
     private final ClientResource resource;
     private final ClientRequestService service;
 
+    // initialize client
+
+    // start()
+
+    // listenp2p
+
+    // handlePeerConnection()
+
+    // handleConsole
+
+    // shutdown
+
+    // main
 }
