@@ -6,7 +6,15 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.PriorityQueue;
+import java.util.Scanner;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import common.DownloadRequest;
 import services.ServerRequestService;
 
 public class Server {
@@ -14,6 +22,12 @@ public class Server {
     private final ServerRequestService service;
     private volatile boolean running=true;
     private ServerSocket serverSocket;
+    private final Set<Socket> activeClientSockets=ConcurrentHashMap.newKeySet();
+    private final ExecutorService executor = Executors.newCachedThreadPool();
+    private static final AtomicInteger counter = new AtomicInteger(0);
+    private static final Set<Integer> usedIds = ConcurrentHashMap.newKeySet();
+    private static final PriorityQueue<Integer> freeIds = new PriorityQueue<>();
+
 
     public Server(int port) {
         this.port=port;
@@ -24,6 +38,7 @@ public class Server {
         Thread listenerThread=new Thread(this::listenForClients);
         listenerThread.setDaemon(false);
         listenerThread.start();
+        handleConsole();
     }
 
     private void listenForClients() {
@@ -68,6 +83,55 @@ public class Server {
     }
     }
 
+    private void handleConsole() {
+        try (Scanner scanner = new Scanner(System.in)) {
+            while (running) {
+                System.out.print("> ");
+                if (!scanner.hasNextLine()) {
+                    break;
+                }
+                String input = scanner.nextLine().trim();
+                switch (input) {
+                    case "listdata":
+                        System.out.println("Risorse:");
+                        service.listData().forEach(System.out::println);
+                        break;
+
+                    case "log":
+                        System.out.println("Risorse scaricate:");
+                        for (DownloadRequest req : service.logData()) {
+                            System.out.println(req.toString());
+                        }
+                        break;
+                    case "quit":
+                        running = false;
+                        System.out.println("Chiusura aggregatore...");
+                        try {
+                            if (serverSocket != null) {
+                                serverSocket.close();
+                            }
+                        } catch (IOException e) {
+                            // Ignore
+                        }
+                        for (Socket s : activeClientSockets) {
+                            try {
+                                s.close();
+                            } catch (IOException e) {
+                                // Ignore
+                            }
+                        }
+                        activeClientSockets.clear();
+                        executor.shutdownNow();
+                        return;
+                    default:
+                        if (!input.isEmpty()) {
+                            System.out.println("Comando non riconosciuto.");
+                        }
+                        break;
+                }
+            }
+        }
+    }
 
     private class ClientHandler implements Runnable{
         private final Socket socket;
@@ -130,7 +194,7 @@ public class Server {
                 activeClientSockets.remove(socket);
                 if (connectedNodeId!=null) {
                     int id=Integer.parseInt(connectedNodeId.replace("Utente", ""));
-                    releaseNodeId(id); fare metodo per ascoltare il client
+                    releaseNodeId(id); //fare metodo per ascoltare il client
                     service.unregisterNode(connectedNodeId);
                 }
             }
