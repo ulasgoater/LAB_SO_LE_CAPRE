@@ -6,6 +6,9 @@ import java.net.Socket;
 import java.util.Scanner;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 
 import common.Rilevazione;
 import services.DownloadResult;
@@ -18,7 +21,18 @@ public class Client {
     private final ClientResource resource;
     private final ClientRequestServiceImpl service;
     private volatile boolean running;
-    private final Set<Socket> activePeerSockets= ConcurrentHashMap.newKeySet();;
+    private final Set<Socket> activePeerSockets= ConcurrentHashMap.newKeySet();
+    // crea una thread pool --> riutilizza quelli già esistenti se sono liberi
+    private final ExecutorService executor = Executors.newCachedThreadPool(
+        new ThreadFactory() {
+            @Override
+            public Thread newThread(Runnable runnable){
+                Thread thread = new Thread(runnable);
+                thread.setDaemon(true);
+                return thread;
+            }
+        }
+    );
 
 
     public Client(String host, int port){
@@ -45,11 +59,11 @@ public class Client {
             p2pThread.start();
             this.nodeId = service.connectToAggregator(host, p2pPort, nodeId, p2pPort);
             System.out.println("Connesso all'aggregatore al " + host + ": " + port + " come " + nodeId + " (P2P su " + p2pPort + " )" );
-
+            handleConsole();
         }catch(Exception e){
             System.out.println("Errore nella connessione all'agregatore");
         } finally{
-            // da aggiungere metodo per la chiusura
+            shutdown();
         }
     }
 
@@ -157,7 +171,7 @@ public class Client {
                     break;
                     
                     case "quit":
-                        // DA FARE METODO PER LA CHIUSURA
+                        shutdown();
                     break; 
                     default:
                         System.out.println("Comando non riconosciuto");
@@ -167,10 +181,27 @@ public class Client {
         } 
     }
 
+    //metodo per la chiusura del nodo sensore con notifica all' aggr.
+    private void shutdown(){
+        if(!running){
+            return;
+        }
+        running = false;
+        service.disconnect(nodeId);
+        for(Socket s : activePeerSockets){
+            try {
+                s.close();
+            } catch (IOException e ) {
+                System.out.println("Errore chiusura socket P2P: " + e.getMessage());
+            }
+        }
+        activePeerSockets.clear();
+        executor.shutdownNow();
+    }
+
 
     /**
      * DEVO AGGIUNGERE METODO PER LA GESTIONE DELLA CONNESSIONE,
-     *  PER LA CHIUSURA.
      * VARI ED EVENTUALI.
      * 
      */
@@ -180,7 +211,4 @@ public class Client {
 
 
     // handlePeerConnection()
-
-    // shutdown
-
     // main
