@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import common.Rilevazione;
@@ -85,13 +86,15 @@ public class ClientResource {
         }
     }
 
-
-
-
-    /*DA AGGIUNGERE */
-
-
-
-    // getContent
+    //cerca una rilevazione nell'archivio e poi ritorna il contenuto
+    public Optional<String> getContent(String resourceName){ // Optional perchè potrebbe avere valore o meno
+        lock.readLock().lock();
+        try{
+            Rilevazione r = localData.get(resourceName);
+            return r !=  null ? Optional.of(r.getContenuto()) : Optional.empty();
+        } finally{
+            lock.readLock().unlock();
+        }
+    }
 }
 

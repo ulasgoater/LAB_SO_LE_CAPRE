@@ -1,6 +1,9 @@
 package client;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Scanner;
@@ -8,6 +11,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadFactory;
 
 import common.Rilevazione;
@@ -34,14 +38,23 @@ public class Client {
         }
     );
 
+    private final Semaphore p2Semaphore = new Semaphore(1);
+
 
     public Client(String host, int port){
+        this(host, port, null);
+    }
+
+    public Client(String host, int port, String dataDir){
         this.host = host;
         this.port = port;
         this.nodeId = null;
         this.resource = new ClientResource(); //archivio rilevazioni ogni nodo
         this.service = new ClientRequestServiceImpl(this.resource); //per le comunicazioni
         this.running = true;
+        if(dataDir != null){
+            this.resource.loadFromDirectory(dataDir);
+        }
     }
 
     public void start(){
@@ -78,10 +91,10 @@ public class Client {
                 Runnable peerTask = new Runnable() {
                     @Override
                     public void run(){
-                    // Devo aggiungere metodo per la gestione della singola connessione 
+                        handlePeerConnection(peer);
                     }
-
                 };
+                executor.submit(peerTask);
             } catch (IOException e) {
                 if(running){
                     System.out.println();
@@ -200,15 +213,47 @@ public class Client {
     }
 
 
-    /**
-     * DEVO AGGIUNGERE METODO PER LA GESTIONE DELLA CONNESSIONE,
-     * VARI ED EVENTUALI.
-     * 
-     */
+    //gestisce la connessione con un alrto nodo
+    private void handlePeerConnection(Socket peer){
+        try {
+            p2Semaphore.acquire();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            try {
+                peer.close();
+            } catch (IOException ex) {
+                System.out.println("Errore chiusura socket: " + ex.getMessage());
+            }
+            return;
+        }
 
+        try (Socket p = peer;
+            BufferedReader in = new BufferedReader( new InputStreamReader(p.getInputStream()));
+            PrintWriter out = new PrintWriter(p.getOutputStream(),true)){
 
+            String resourceName = in.readLine();
+            if(resourceName != null){
+                resource.getContent(resourceName).ifPresent(out::println);
+            }
+            
+        } catch (IOException e) {
+            System.out.println("Errore comunicazione P2P: " + e.getMessage());
+        }finally{
+            activePeerSockets.remove(peer);
+            p2Semaphore.release(); // Rilascia sempre, anche in caso di eccezione
+        }
+    }
+
+    public static void main(String[] args) {
+        if(args.length < 2 || args.length > 3){
+            System.out.println("Uso: java Client <indirizzo aggregator> <porta aggregator> [cartella dati]");
+            return;
+        }
+        try {
+            String dataDir  = args.length == 3 ? args[2] : null;
+            new Client(args[0], Integer.parseInt(args[1]), dataDir).start();
+        } catch (NumberFormatException e) {
+            System.out.println("La porta deve essere un numero.");
+        }
+    }
 }
-
-
-    // handlePeerConnection()
-    // main
