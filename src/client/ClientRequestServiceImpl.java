@@ -99,8 +99,7 @@ public class ClientRequestServiceImpl implements ClientRequestService {
      */
     @Override
     public DownloadResult download(String resourceName, String localNodeId) {
-        int retries = 0;
-        while (retries++ < MAX_DOWNLOAD_RETRIES) {
+        while (true) {
             String peerIp = null;
             int peerPort = -1;
 
@@ -148,14 +147,8 @@ public class ClientRequestServiceImpl implements ClientRequestService {
                 resource.addRilevazione(new Rilevazione(resourceName, content));
                 // Notifica l'aggregatore della nuova rilevazione locale
                 synchronized (aggregatorLock) {
-                    if (out != null) {
+                    if (out != null)
                         out.println("ADD " + resourceName);
-                        try {
-                            in.readLine(); // consume ACK to keep protocol in sync
-                        } catch (IOException e) {
-                            // non-critical
-                        }
-                    }
                 }
             }
 
@@ -172,8 +165,6 @@ public class ClientRequestServiceImpl implements ClientRequestService {
             // fallito
             System.out.println("Nodo non raggiungibile, riprovo con un altro nodo...");
         }
-        // Esauriti i tentativi massimi di retry
-        return DownloadResult.NOT_FOUND;
     }
 
     @Override
@@ -284,11 +275,10 @@ public class ClientRequestServiceImpl implements ClientRequestService {
         String assignedId = in.readLine();
         System.out.println("ID assegnato dal server: " + assignedId);
 
-        // Invia subito le rilevazioni pre-esistenti e consuma gli ACK
+        // Invia subito le rilevazioni pre-esistenti
         List<Rilevazione> preloaded = resource.getLocalData();
         for (Rilevazione r : preloaded) {
             this.out.println("ADD " + r.getNome());
-            in.readLine(); // consume ACK to keep protocol in sync
         }
 
         return assignedId;

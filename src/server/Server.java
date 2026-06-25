@@ -180,7 +180,7 @@ public class Server {
                                 int p2pPort = Integer.parseInt(parts[1]);
                                 String ip = socket.getInetAddress().getHostAddress();
                                 int id = assignNodeId();
-                                connectedNodeId = "peer" + id;
+                                connectedNodeId = "Utente" + id;
                                 out.println(connectedNodeId); // <-- fondamentale
                                 service.registerNode(connectedNodeId, ip, p2pPort);
                                 System.out.println(
@@ -228,7 +228,7 @@ public class Server {
                                 String target = parts[1].trim();
 
                                 // DOWNLOAD MULTIPLO
-                                if (target.matches("peer\\d+")) {
+                                if (target.matches("Utente\\d+")) {
 
                                     var results = service.requestTokensForNode(target, connectedNodeId);
 
@@ -286,7 +286,7 @@ public class Server {
             } finally {
                 activeClientSockets.remove(socket);
                 if (connectedNodeId != null) {
-                    int id = Integer.parseInt(connectedNodeId.replace("peer", ""));
+                    int id = Integer.parseInt(connectedNodeId.replace("Utente", ""));
                     releaseNodeId(id);
                     service.unregisterNode(connectedNodeId);
                 }
