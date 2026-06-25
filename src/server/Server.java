@@ -9,7 +9,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import common.DownloadRequest;
 import services.ServerRequestService;
@@ -25,7 +24,6 @@ public class Server {
         thread.setDaemon(true);
         return thread;
     });
-    private static final AtomicInteger counter = new AtomicInteger(0);
     private static final Set<Integer> usedIds = ConcurrentHashMap.newKeySet();
     private static final PriorityQueue<Integer> freeIds = new PriorityQueue<>();
     static {
