@@ -17,7 +17,7 @@ public class ClientRequestServiceImpl implements ClientRequestService {
     private BufferedReader in;
     private final Object aggregatorLock = new Object();
 
-    // Max retry attempts for robust download protocolB
+    // Bug #1: Max retry attempts for robust download protocol
     private static final int MAX_DOWNLOAD_RETRIES = 50;
 
     public ClientRequestServiceImpl(ClientResource resource) {
@@ -35,6 +35,7 @@ public class ClientRequestServiceImpl implements ClientRequestService {
         synchronized (aggregatorLock) {
             if (out != null) {
                 out.println("ADD " + rilevazione.getNome());
+                // Bug #8: Read the ACK response to stay in sync with the protocol
                 try {
                     in.readLine(); // ACK
                 } catch (IOException e) {
@@ -85,6 +86,8 @@ public class ClientRequestServiceImpl implements ClientRequestService {
     }
 
     /**
+     * Bug #1 (robust download retry loop) + Bug #7 (BUSY → wait and retry).
+     *
      * Protocol:
      * 1. Ask aggregator for a token + target node address.
      * 2. If BUSY (target node occupied), wait and retry from step 1.
@@ -256,7 +259,7 @@ public class ClientRequestServiceImpl implements ClientRequestService {
     }
 
     /**
-     * After registration, send all existing local resources to the
+     * Bug #2: After registration, send all existing local resources to the
      * aggregator.
      */
     @Override
