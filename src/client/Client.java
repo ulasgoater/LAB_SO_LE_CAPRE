@@ -38,6 +38,17 @@ public class Client {
         }
     );
 
+    /*
+     * Meccanismo di mutua esclusione per le richieste P2P in ingresso (F1/F2/F3).
+     *
+     * Deadlock avoidance (F4): il pattern di locking è asimmetrico — solo il lato
+     * SERVENTE (handlePeerConnection) acquisisce il semaforo, mentre il lato
+     * RICHIEDENTE (performP2PDownload in ClientRequestServiceImpl) apre un Socket
+     * senza acquisire alcun lock locale. Questo spezza la condizione di attesa
+     * circolare (circular-wait) dei criteri di Coffman, rendendo il deadlock
+     * strutturalmente impossibile anche quando due nodi A e B si richiedono
+     * reciprocamente in contemporanea.
+     */
     private final Semaphore p2Semaphore = new Semaphore(1);
 
 
@@ -159,7 +170,7 @@ public class Client {
                     case "download":
                         if(parts.length == 2){
                             String target = parts[1].trim();
-                            DownloadResult result = target.matches("Utente\\d+") //matches() controlla che target abbia il pattern corretto
+                            DownloadResult result = target.matches("peer\\d+") //matches() controlla che target abbia il pattern corretto
                             ? service.downloadFromNode(target, nodeId) : service.download(target, nodeId);  // uno per la singola rilevazione e l'altro per le rilevazioni di un dato nodo
 
                             switch (result) {
@@ -179,7 +190,7 @@ public class Client {
                             }
 
                         } else {
-                            System.out.println("Uso: download <nome risorsa | UtenteX>");
+                            System.out.println("Uso: download <nome risorsa | peerX>");
                         }
                     break;
                     
