@@ -14,7 +14,6 @@ public class ServerResource {
     private final List<DownloadRequest> downloadLogs = new ArrayList<>();
     private final Map<String, DownloadLease> activeDownloads = new HashMap<>(); // key: resourceName -> lease
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
-    private final Map<String, ReentrantLock> resourceLocks = new HashMap<>();
     private final Map<String, Condition> resourceConditions = new HashMap<>();
 
     private static class DownloadLease {
@@ -57,14 +56,9 @@ public class ServerResource {
                     iterator.remove();
 
                     // Sveglia eventuali thread in attesa sulla risorsa
-                    ReentrantLock resourceLock = resourceLocks.get(lease.resourceName);
-                    if (resourceLock != null) {
-                        resourceLock.lock();
-                        try {
-                            resourceConditions.get(lease.resourceName).signalAll();
-                        } finally {
-                            resourceLock.unlock();
-                        }
+                    Condition condition = resourceConditions.get(lease.resourceName);
+                    if (condition != null) {
+                        condition.signalAll();
                     }
                 }
             }
@@ -111,12 +105,8 @@ public class ServerResource {
         }
     }
 
-    private ReentrantLock getResourceLock(String resource) {
-        return resourceLocks.computeIfAbsent(resource, k -> {
-            ReentrantLock rl = new ReentrantLock();
-            resourceConditions.put(k, rl.newCondition());
-            return rl;
-        });
+    private Condition getResourceCondition(String resource) {
+        return resourceConditions.computeIfAbsent(resource, k -> lock.writeLock().newCondition());
     }
 
     public String requestToken(String resource, String requesterId) {
@@ -133,24 +123,15 @@ public class ServerResource {
                 return "NO_OWNER";
             }
 
-            ReentrantLock resourceLock = getResourceLock(resource);
-            Condition condition = resourceConditions.get(resource);
+            Condition condition = getResourceCondition(resource);
 
             // Aspetta finché il token non è libero
             while (activeDownloads.containsKey(resource)) {
-                lock.writeLock().unlock();
                 try {
-                    resourceLock.lock();
-                    try {
-                        condition.await();
-                    } finally {
-                        resourceLock.unlock();
-                    }
+                    condition.await();
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     return "CONNECTION_ERROR";
-                } finally {
-                    lock.writeLock().lock();
                 }
             }
 
@@ -190,25 +171,16 @@ public class ServerResource {
             Collections.sort(targetResources);
 
             for (String resource : targetResources) {
-                ReentrantLock resourceLock = getResourceLock(resource);
-                Condition condition = resourceConditions.get(resource);
+                Condition condition = getResourceCondition(resource);
 
                 boolean interrupted = false;
                 while (activeDownloads.containsKey(resource)) {
-                    lock.writeLock().unlock();
                     try {
-                        resourceLock.lock();
-                        try {
-                            condition.await();
-                        } finally {
-                            resourceLock.unlock();
-                        }
+                        condition.await();
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                         interrupted = true;
                         break;
-                    } finally {
-                        lock.writeLock().lock();
                     }
                 }
 
@@ -277,14 +249,9 @@ public class ServerResource {
             }
 
             // Sveglia i thread in attesa sul token di questa risorsa
-            ReentrantLock resourceLock = resourceLocks.get(resource);
-            if (resourceLock != null) {
-                resourceLock.lock();
-                try {
-                    resourceConditions.get(resource).signalAll();
-                } finally {
-                    resourceLock.unlock();
-                }
+            Condition condition = resourceConditions.get(resource);
+            if (condition != null) {
+                condition.signalAll();
             }
 
         } finally {
