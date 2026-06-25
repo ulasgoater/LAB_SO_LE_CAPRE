@@ -25,18 +25,17 @@ public class Client {
     private final ClientResource resource;
     private final ClientRequestServiceImpl service;
     private volatile boolean running;
-    private final Set<Socket> activePeerSockets= ConcurrentHashMap.newKeySet();
+    private final Set<Socket> activePeerSockets = ConcurrentHashMap.newKeySet();
     // crea una thread pool --> riutilizza quelli già esistenti se sono liberi
     private final ExecutorService executor = Executors.newCachedThreadPool(
-        new ThreadFactory() {
-            @Override
-            public Thread newThread(Runnable runnable){
-                Thread thread = new Thread(runnable);
-                thread.setDaemon(true);
-                return thread;
-            }
-        }
-    );
+            new ThreadFactory() {
+                @Override
+                public Thread newThread(Runnable runnable) {
+                    Thread thread = new Thread(runnable);
+                    thread.setDaemon(true);
+                    return thread;
+                }
+            });
 
     /*
      * Meccanismo di mutua esclusione per le richieste P2P in ingresso (F1/F2/F3).
@@ -51,63 +50,63 @@ public class Client {
      */
     private final Semaphore p2Semaphore = new Semaphore(1);
 
-
-    public Client(String host, int port){
+    public Client(String host, int port) {
         this(host, port, null);
     }
 
-    public Client(String host, int port, String dataDir){
+    public Client(String host, int port, String dataDir) {
         this.host = host;
         this.port = port;
         this.nodeId = null;
-        this.resource = new ClientResource(); //archivio rilevazioni ogni nodo
-        this.service = new ClientRequestServiceImpl(this.resource); //per le comunicazioni
+        this.resource = new ClientResource(); // archivio rilevazioni ogni nodo
+        this.service = new ClientRequestServiceImpl(this.resource); // per le comunicazioni
         this.running = true;
-        if(dataDir != null){
+        if (dataDir != null) {
             this.resource.loadFromDirectory(dataDir);
         }
     }
 
-    public void start(){
-        try(ServerSocket p2pSocket = new ServerSocket(0)){
+    public void start() {
+        try (ServerSocket p2pSocket = new ServerSocket(0)) {
 
-            int p2pPort = p2pSocket.getLocalPort(); //per prendere la porta che è stata assegnata
+            int p2pPort = p2pSocket.getLocalPort(); // per prendere la porta che è stata assegnata
             Runnable p2pTask = new Runnable() {
                 @Override
-                public void run(){
+                public void run() {
                     listenP2P(p2pSocket);
                 }
             };
             Thread p2pThread = new Thread(p2pTask);
-            p2pThread.setDaemon(false);  // così fin quando è attivo non si chiude la Jvm
+            p2pThread.setDaemon(false); // così fin quando è attivo non si chiude la Jvm
             p2pThread.start();
-            this.nodeId = service.connectToAggregator(host, p2pPort, nodeId, p2pPort);
-            System.out.println("Connesso all'aggregatore al " + host + ": " + port + " come " + nodeId + " (P2P su " + p2pPort + " )" );
+            this.nodeId = service.connectToAggregator(host, this.port, nodeId, p2pPort);
+            System.out.println("Connesso all'aggregatore al " + host + ": " + port + " come " + nodeId + " (P2P su "
+                    + p2pPort + " )");
             handleConsole();
-        }catch(Exception e){
+        } catch (Exception e) {
             System.out.println("Errore nella connessione all'agregatore");
-        } finally{
+        } finally {
             shutdown();
         }
     }
 
-
-    //metodo p2p per far si che gli altri nodi si possano collegare per scaricare le rilevazioni
-    private void listenP2P(ServerSocket p2pSocket){
-        while(running){
+    // metodo p2p per far si che gli altri nodi si possano collegare per scaricare
+    // le rilevazioni
+    private void listenP2P(ServerSocket p2pSocket) {
+        while (running) {
             try {
                 Socket peer = p2pSocket.accept();
-                activePeerSockets.add(peer); //aggiunge al Set i nodi attivi 
+                activePeerSockets.add(peer); // aggiunge al Set i nodi attivi
 
                 Runnable peerTask = new Runnable() {
                     @Override
-                    public void run(){
+                    public void run() {
                         handlePeerConnection(peer);
                     }
                 };
                 executor.submit(peerTask);
             } catch (IOException e) {
-                if(running){
+                if (running) {
                     System.out.println();
                 }
             }
@@ -115,107 +114,111 @@ public class Client {
     }
 
     /*
-        handleConsole serve per gestire le istruzioni scritte dall'utente nel terminale
-    */
+     * handleConsole serve per gestire le istruzioni scritte dall'utente nel
+     * terminale
+     */
 
-    private void handleConsole(){
+    private void handleConsole() {
         try (Scanner scanner = new Scanner(System.in)) {
-            while(running){
+            while (running) {
                 System.out.print(">");
-                if(!scanner.hasNextLine()){
+                if (!scanner.hasNextLine()) {
                     break;
                 }
 
                 String input = scanner.nextLine().trim();
-                if(input.isEmpty()){
+                if (input.isEmpty()) {
                     continue;
                 }
 
-                String [] parts = input.split("\\s+", 3);
+                String[] parts = input.split("\\s+", 3);
                 String cmd = parts[0];
 
                 switch (cmd) {
                     case "listdata":
-                        if(parts.length > 1 && parts[1].equals("local")){
+                        if (parts.length > 1 && parts[1].equals("local")) {
                             System.out.println("Risorse: ");
-                            for(Rilevazione r : service.listLocalData(nodeId)){
+                            for (Rilevazione r : service.listLocalData(nodeId)) {
                                 System.out.println("- " + r.getNome());
                             }
-                        } else if(parts.length > 1 && parts[1].equals("remote")){
+                        } else if (parts.length > 1 && parts[1].equals("remote")) {
                             System.out.println("Risorse: ");
                             service.listRemoteData().forEach(System.out::println);
-                        }else{
+                        } else {
                             System.out.println("Uso listdata [local|remote]");
                         }
                         break;
 
                     case "listnodes":
                         System.out.println("Nodi attivi: ");
-                        service.listNodes().forEach(System.out::println); 
-                    break;
-                    
+                        service.listNodes().forEach(System.out::println);
+                        break;
+
                     case "add":
-                        if(parts.length== 3){
+                        if (parts.length == 3) {
                             String nome = parts[1];
                             String contenuto = parts[2];
                             Rilevazione r = new Rilevazione(nome, contenuto);
-                            service.add(nodeId,r);
+                            service.add(nodeId, r);
                             System.out.println("Risorsa " + nome + " aggiunta.");
 
-                        }else{
+                        } else {
                             System.out.println("Uso: add <nome risorsa> <contenuto>");
                         }
-                    break;
-                    
+                        break;
+
                     case "download":
-                        if(parts.length == 2){
+                        if (parts.length == 2) {
                             String target = parts[1].trim();
-                            DownloadResult result = target.matches("peer\\d+") //matches() controlla che target abbia il pattern corretto
-                            ? service.downloadFromNode(target, nodeId) : service.download(target, nodeId);  // uno per la singola rilevazione e l'altro per le rilevazioni di un dato nodo
+                            DownloadResult result = target.matches("peer\\d+") // matches() controlla che target abbia
+                                                                               // il pattern corretto
+                                    ? service.downloadFromNode(target, nodeId)
+                                    : service.download(target, nodeId); // uno per la singola rilevazione e l'altro per
+                                                                        // le rilevazioni di un dato nodo
 
                             switch (result) {
                                 case SUCCESS:
                                     System.out.println("Download completato e token rilasciato");
                                     break;
                                 case NOT_FOUND:
-                                    System.out.println("Risorsa non trovata sulla rete (download fallito)");   
-                                    break; 
+                                    System.out.println("Risorsa non trovata sulla rete (download fallito)");
+                                    break;
                                 case NO_OWNER:
                                     System.out.println("Nessun nodo online possiede questa risorsa (download fallito)");
                                     break;
-                                case CONNECTION_ERROR:   
+                                case CONNECTION_ERROR:
                                 default:
-                                    System.out.println("Download fallito, errore di connessione"); 
-                                break;
+                                    System.out.println("Download fallito, errore di connessione");
+                                    break;
                             }
 
                         } else {
                             System.out.println("Uso: download <nome risorsa | peerX>");
                         }
-                    break;
-                    
+                        break;
+
                     case "quit":
                         shutdown();
-                    break; 
+                        break;
                     default:
                         System.out.println("Comando non riconosciuto");
-                    break;
+                        break;
                 }
             }
-        } 
+        }
     }
 
-    //metodo per la chiusura del nodo sensore con notifica all' aggr.
-    private void shutdown(){
-        if(!running){
+    // metodo per la chiusura del nodo sensore con notifica all' aggr.
+    private void shutdown() {
+        if (!running) {
             return;
         }
         running = false;
         service.disconnect(nodeId);
-        for(Socket s : activePeerSockets){
+        for (Socket s : activePeerSockets) {
             try {
                 s.close();
-            } catch (IOException e ) {
+            } catch (IOException e) {
                 System.out.println("Errore chiusura socket P2P: " + e.getMessage());
             }
         }
@@ -223,9 +226,8 @@ public class Client {
         executor.shutdownNow();
     }
 
-
-    //gestisce la connessione con un alrto nodo
-    private void handlePeerConnection(Socket peer){
+    // gestisce la connessione con un alrto nodo
+    private void handlePeerConnection(Socket peer) {
         try {
             p2Semaphore.acquire();
         } catch (InterruptedException e) {
@@ -239,29 +241,29 @@ public class Client {
         }
 
         try (Socket p = peer;
-            BufferedReader in = new BufferedReader( new InputStreamReader(p.getInputStream()));
-            PrintWriter out = new PrintWriter(p.getOutputStream(),true)){
+                BufferedReader in = new BufferedReader(new InputStreamReader(p.getInputStream()));
+                PrintWriter out = new PrintWriter(p.getOutputStream(), true)) {
 
             String resourceName = in.readLine();
-            if(resourceName != null){
+            if (resourceName != null) {
                 resource.getContent(resourceName).ifPresent(out::println);
             }
-            
+
         } catch (IOException e) {
             System.out.println("Errore comunicazione P2P: " + e.getMessage());
-        }finally{
+        } finally {
             activePeerSockets.remove(peer);
             p2Semaphore.release(); // Rilascia sempre, anche in caso di eccezione
         }
     }
 
     public static void main(String[] args) {
-        if(args.length < 2 || args.length > 3){
+        if (args.length < 2 || args.length > 3) {
             System.out.println("Uso: java Client <indirizzo aggregator> <porta aggregator> [cartella dati]");
             return;
         }
         try {
-            String dataDir  = args.length == 3 ? args[2] : null;
+            String dataDir = args.length == 3 ? args[2] : null;
             new Client(args[0], Integer.parseInt(args[1]), dataDir).start();
         } catch (NumberFormatException e) {
             System.out.println("La porta deve essere un numero.");
