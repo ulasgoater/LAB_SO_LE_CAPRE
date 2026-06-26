@@ -4,14 +4,27 @@ Welcome to the VS Code Java world. Here is a guideline to help you get started t
 
 ## Folder Structure
 
-The workspace contains two folders by default, where:
+The workspace contains:
 
 - `src`: the folder to maintain sources
-- `lib`: the folder to maintain dependencies
 
-Meanwhile, the compiled output files will be generated in the `bin` folder by default.
+Meanwhile, the compiled output files will be generated in the `out` folder.
 
 > If you want to customize the folder structure, open `.vscode/settings.json` and update the related settings there.
+
+## Compilation
+
+To compile all source files into the `out` directory, run the following command in your terminal:
+
+```bash
+javac -d out $(find src -name "*.java")
+```
+
+If your shell supports recursive globbing (like `zsh` on macOS), you can also run:
+
+```bash
+javac -d out src/**/*.java
+```
 
 ## Dependency Management
 
