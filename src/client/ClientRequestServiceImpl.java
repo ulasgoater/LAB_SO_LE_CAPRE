@@ -205,7 +205,6 @@ public class ClientRequestServiceImpl implements ClientRequestService {
                 out.println("DOWNLOAD " + targetNode);
 
                 String line;
-                int i = 0;
                 while (true) {
                     line = in.readLine();
 
