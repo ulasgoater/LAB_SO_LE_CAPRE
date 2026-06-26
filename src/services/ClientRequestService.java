@@ -9,6 +9,8 @@ public interface ClientRequestService {
 
     List<String> listNodes();
 
+    List<String> findResourceOwners(String resourceName);
+
     Rilevazione add(String nodeId, Rilevazione rilevazione);
 
     List<String> listRemoteData();

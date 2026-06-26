@@ -84,6 +84,22 @@ public class ServerResource {
         }
     }
 
+    public List<String> findOwners(String resource) {
+        lock.readLock().lock();
+        try {
+            Set<String> owners = networkData.get(resource);
+            if (owners == null) {
+                return new ArrayList<>();
+            }
+            return owners.stream()
+                    .filter(nodeAddresses::containsKey)
+                    .sorted()
+                    .collect(Collectors.toList());
+        } finally {
+            lock.readLock().unlock();
+        }
+    }
+
     // Only show online nodes in the output (no "(offline)" suffix)
     public List<String> getNetworkData() {
         lock.readLock().lock();

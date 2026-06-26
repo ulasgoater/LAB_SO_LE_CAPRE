@@ -3,6 +3,7 @@ package client;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -17,6 +18,19 @@ public class ClientResource {
 
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();  //serve per la gestione delle risorse condivise
     private final Map<String, Rilevazione> localData = new HashMap<>(); // Archivio per le rilevazioni
+    private File storageDir;
+
+    public void useDirectory(String directoryPath) {
+        File dir = new File(directoryPath);
+        if (!dir.exists() && !dir.mkdirs()) {
+            System.out.println("Errore nella creazione della cartella dati: " + directoryPath);
+            return;
+        }
+        if (!dir.isDirectory()) {
+            return;
+        }
+        storageDir = dir;
+    }
 
 
 
@@ -27,6 +41,7 @@ public class ClientResource {
         lock.writeLock().lock();
         try {
             localData.put(r.getNome(), r);
+            persist(r);
         } finally{
             lock.writeLock().unlock();
         }
@@ -51,11 +66,11 @@ public class ClientResource {
      */
 
     public void loadFromDirectory(String directoryPath){
-        File dir = new File(directoryPath);
-        if(!dir.exists() || !dir.isDirectory()){
+        useDirectory(directoryPath);
+        if(storageDir == null){
             return;
         }
-        File[] files = dir.listFiles(); //prendiamo tutte le rilevazioni nella cartella
+        File[] files = storageDir.listFiles(); //prendiamo tutte le rilevazioni nella cartella
         if(files == null){
             return;
         }
@@ -86,6 +101,18 @@ public class ClientResource {
         }
     }
 
+    private void persist(Rilevazione r) {
+        if (storageDir == null) {
+            return;
+        }
+        File file = new File(storageDir, r.getNome());
+        try (FileWriter writer = new FileWriter(file)) {
+            writer.write(r.getContenuto());
+        } catch (IOException e) {
+            System.out.println("Errore nel salvataggio della risorsa: " + r.getNome());
+        }
+    }
+
     //cerca una rilevazione nell'archivio e poi ritorna il contenuto
     public Optional<String> getContent(String resourceName){ // Optional perchè potrebbe avere valore o meno
         lock.readLock().lock();
@@ -97,4 +124,3 @@ public class ClientResource {
         }
     }
 }
-

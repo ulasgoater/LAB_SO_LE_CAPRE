@@ -24,6 +24,11 @@ public class ServerRequestServiceImpl implements ServerRequestService {
     }
 
     @Override
+    public List<String> findOwners(String resourceName) {
+        return resource.findOwners(resourceName);
+    }
+
+    @Override
     public List<DownloadRequest> logData() {
         return resource.getLogs();
     }

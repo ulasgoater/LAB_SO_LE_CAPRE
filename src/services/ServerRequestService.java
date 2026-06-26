@@ -10,6 +10,8 @@ public interface ServerRequestService {
 
     List<String> listNodes();
 
+    List<String> findOwners(String resourceName);
+
     List<DownloadRequest> logData();
 
     void registerNode(String nodeId, String ip, int port);

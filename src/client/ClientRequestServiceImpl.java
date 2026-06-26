@@ -85,6 +85,24 @@ public class ClientRequestServiceImpl implements ClientRequestService {
         }
     }
 
+    @Override
+    public List<String> findResourceOwners(String resourceName) {
+        synchronized (aggregatorLock) {
+            try {
+                out.println("FIND_RESOURCE " + resourceName);
+                List<String> res = new ArrayList<>();
+                String line;
+                while ((line = in.readLine()) != null && !line.equals("END")) {
+                    res.add(line);
+                }
+                return res;
+            } catch (IOException e) {
+                System.out.println("Errore: connessione con l'aggregatore interrotta.");
+                return new ArrayList<>();
+            }
+        }
+    }
+
     /**
      * Bug #1 (robust download retry loop) + Bug #7 (BUSY → wait and retry).
      *

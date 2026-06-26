@@ -22,6 +22,7 @@ public class Client {
     private final String host;
     private final int port;
     private String nodeId;
+    private final String dataDir;
     private final ClientResource resource;
     private final ClientRequestServiceImpl service;
     private volatile boolean running;
@@ -58,6 +59,7 @@ public class Client {
         this.host = host;
         this.port = port;
         this.nodeId = null;
+        this.dataDir = dataDir;
         this.resource = new ClientResource(); // archivio rilevazioni ogni nodo
         this.service = new ClientRequestServiceImpl(this.resource); // per le comunicazioni
         this.running = true;
@@ -80,6 +82,9 @@ public class Client {
             p2pThread.setDaemon(false); // così fin quando è attivo non si chiude la Jvm
             p2pThread.start();
             this.nodeId = service.connectToAggregator(host, this.port, nodeId, p2pPort);
+            if (dataDir == null) {
+                this.resource.useDirectory("data-" + nodeId);
+            }
             System.out.println("Connesso all'aggregatore al " + host + ": " + port + " come " + nodeId + " (P2P su "
                     + p2pPort + " )");
             handleConsole();
@@ -152,6 +157,15 @@ public class Client {
                     case "listnodes":
                         System.out.println("Nodi attivi: ");
                         service.listNodes().forEach(System.out::println);
+                        break;
+
+                    case "find":
+                        if (parts.length == 2) {
+                            System.out.println("Nodi che possiedono " + parts[1] + ":");
+                            service.findResourceOwners(parts[1]).forEach(node -> System.out.println("- " + node));
+                        } else {
+                            System.out.println("Uso: find <nome risorsa>");
+                        }
                         break;
 
                     case "add":

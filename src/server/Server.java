@@ -202,7 +202,17 @@ public class Server {
                             break;
 
                         case "LIST_NODES":
-                            service.listNodes().forEach(out::println);
+                            String currentNodeId = connectedNodeId;
+                            service.listNodes().stream()
+                                    .filter(node -> !node.equals(currentNodeId))
+                                    .forEach(out::println);
+                            out.println("END");
+                            break;
+
+                        case "FIND_RESOURCE":
+                            if (parts.length == 2) {
+                                service.findOwners(parts[1]).forEach(out::println);
+                            }
                             out.println("END");
                             break;
 
