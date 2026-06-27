@@ -106,6 +106,14 @@ public class Server {
                 }
                 String input = scanner.nextLine().trim();
                 switch (input) {
+                    case "help":
+                        System.out.println("Comandi disponibili:");
+                        System.out.println("  listdata : Mostra l'elenco delle risorse disponibili sulla rete");
+                        System.out.println("  log      : Mostra il log dei download effettuati");
+                        System.out.println("  quit     : Chiude l'aggregatore");
+                        System.out.println("  help     : Mostra questo messaggio di aiuto");
+                        break;
+
                     case "listdata":
                         System.out.println("Risorse:");
                         service.listData().forEach(System.out::println);

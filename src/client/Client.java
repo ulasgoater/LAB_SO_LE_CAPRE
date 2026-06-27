@@ -140,6 +140,17 @@ public class Client {
                 String cmd = parts[0];
 
                 switch (cmd) {
+                    case "help":
+                        System.out.println("Comandi disponibili:");
+                        System.out.println("  listdata [local|remote]         : Mostra le risorse locali o remote");
+                        System.out.println("  listnodes                       : Mostra i nodi attivi sulla rete");
+                        System.out.println("  find <nome risorsa>             : Mostra i nodi che possiedono una determinata risorsa");
+                        System.out.println("  add <nome risorsa> <contenuto>  : Aggiunge una nuova rilevazione al nodo corrente");
+                        System.out.println("  download <nome risorsa | peerX> : Scarica una singola risorsa o tutte le risorse di un nodo");
+                        System.out.println("  quit                            : Disconnette il nodo e chiude l'applicazione");
+                        System.out.println("  help                            : Mostra questo messaggio di aiuto");
+                        break;
+
                     case "listdata":
                         if (parts.length > 1 && parts[1].equals("local")) {
                             System.out.println("Risorse: ");
