@@ -49,6 +49,8 @@ public class Client {
      * strutturalmente impossibile anche quando due nodi A e B si richiedono
      * reciprocamente in contemporanea.
      */
+
+    // Only one thread can access the critical section at a time
     private final Semaphore p2Semaphore = new Semaphore(1);
 
     public Client(String host, int port) {
@@ -69,8 +71,7 @@ public class Client {
     }
 
     public void start() {
-        try (ServerSocket p2pSocket = new ServerSocket(0)) {
-
+        try (ServerSocket p2pSocket = new ServerSocket(0)) { // automatically allocated port
             int p2pPort = p2pSocket.getLocalPort(); // per prendere la porta che è stata assegnata
             Runnable p2pTask = new Runnable() {
                 @Override
@@ -144,10 +145,14 @@ public class Client {
                         System.out.println("Comandi disponibili:");
                         System.out.println("  listdata [local|remote]         : Mostra le risorse locali o remote");
                         System.out.println("  listnodes                       : Mostra i nodi attivi sulla rete");
-                        System.out.println("  find <nome risorsa>             : Mostra i nodi che possiedono una determinata risorsa");
-                        System.out.println("  add <nome risorsa> <contenuto>  : Aggiunge una nuova rilevazione al nodo corrente");
-                        System.out.println("  download <nome risorsa | peerX> : Scarica una singola risorsa o tutte le risorse di un nodo");
-                        System.out.println("  quit                            : Disconnette il nodo e chiude l'applicazione");
+                        System.out.println(
+                                "  find <nome risorsa>             : Mostra i nodi che possiedono una determinata risorsa");
+                        System.out.println(
+                                "  add <nome risorsa> <contenuto>  : Aggiunge una nuova rilevazione al nodo corrente");
+                        System.out.println(
+                                "  download <nome risorsa | peerX> : Scarica una singola risorsa o tutte le risorse di un nodo");
+                        System.out.println(
+                                "  quit                            : Disconnette il nodo e chiude l'applicazione");
                         System.out.println("  help                            : Mostra questo messaggio di aiuto");
                         break;
 
