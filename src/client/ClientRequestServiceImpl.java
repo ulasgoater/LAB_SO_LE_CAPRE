@@ -10,6 +10,7 @@ import common.Rilevazione;
 import services.ClientRequestService;
 import services.DownloadResult;
 
+// A class built to create seperation of concerns -> injects the resource class
 public class ClientRequestServiceImpl implements ClientRequestService {
     private final ClientResource resource;
     private Socket aggregatorSocket;

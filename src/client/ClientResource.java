@@ -16,7 +16,8 @@ import common.Rilevazione;
 
 public class ClientResource {
 
-    private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();  //serve per la gestione delle risorse condivise
+    private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock(); // serve per la gestione delle risorse
+                                                                              // condivise
     private final Map<String, Rilevazione> localData = new HashMap<>(); // Archivio per le rilevazioni
     private File storageDir;
 
@@ -32,58 +33,61 @@ public class ClientResource {
         storageDir = dir;
     }
 
-
-
-    /*serve per aggiungerer una rilevazione al nodo: prende il lock, 
-    scrive sulla mappa la rilevazione con chiave il suo nome e poi rilascia il lock
-    */
-    public void addRilevazione(Rilevazione r){
+    /*
+     * serve per aggiungerer una rilevazione al nodo: prende il lock,
+     * scrive sulla mappa la rilevazione con chiave il suo nome e poi rilascia il
+     * lock
+     */
+    public void addRilevazione(Rilevazione r) {
         lock.writeLock().lock();
         try {
             localData.put(r.getNome(), r);
             persist(r);
-        } finally{
+        } finally {
             lock.writeLock().unlock();
         }
     }
+
     /*
-        questo ci da la lista con tutte le rilevazioni dentro l'archivio di un nodo.
-        readLock e non writeLock così possono leggere contemporaneamente.
-    */
-    public List<Rilevazione> getLocalData(){
+     * questo ci da la lista con tutte le rilevazioni dentro l'archivio di un nodo.
+     * readLock e non writeLock così possono leggere contemporaneamente.
+     */
+    public List<Rilevazione> getLocalData() {
         lock.readLock().lock();
         try {
             return new ArrayList<>(localData.values());
-        }finally{
+        } finally {
             lock.readLock().unlock();
-        } 
+        }
     }
 
     /*
-        metodo per caricare le rilevazioni "pre-allocate" da cartella nell'archivio del nodo.
-        Il nome del file  = nome rilevazione e contenuto file = valore rilevazione 
-
+     * metodo per caricare le rilevazioni "pre-allocate" da cartella nell'archivio
+     * del nodo.
+     * Il nome del file = nome rilevazione e contenuto file = valore rilevazione
+     * 
      */
 
-    public void loadFromDirectory(String directoryPath){
+    public void loadFromDirectory(String directoryPath) {
         useDirectory(directoryPath);
-        if(storageDir == null){
+        if (storageDir == null) {
             return;
         }
-        File[] files = storageDir.listFiles(); //prendiamo tutte le rilevazioni nella cartella
-        if(files == null){
+        File[] files = storageDir.listFiles(); // prendiamo tutte le rilevazioni nella cartella
+        if (files == null) {
             return;
         }
 
         lock.writeLock().lock();
-        try{
-            for(File f : files){ // per ogni file, leggiamo riga per riga e concateniamo per creare un unico contenuto e poi aggiungiamo all' archivio come nuova rilevazione 
-                if(f.isFile()){
+        try {
+            for (File f : files) { // per ogni file, leggiamo riga per riga e concateniamo per creare un unico
+                                   // contenuto e poi aggiungiamo all' archivio come nuova rilevazione
+                if (f.isFile()) {
                     try (BufferedReader reader = new BufferedReader(new FileReader(f))) {
                         StringBuilder content = new StringBuilder();
                         String line;
-                        while ((line = reader.readLine()) != null ) {
-                            if(content.length() > 0){
+                        while ((line = reader.readLine()) != null) {
+                            if (content.length() > 0) {
                                 content.append("\n");
                             }
                             content.append(line);
@@ -96,11 +100,12 @@ public class ClientResource {
                     }
                 }
             }
-        } finally{
+        } finally {
             lock.writeLock().unlock();
         }
     }
 
+    // function that saves a rilevazione's contenuto into a file
     private void persist(Rilevazione r) {
         if (storageDir == null) {
             return;
@@ -113,13 +118,13 @@ public class ClientResource {
         }
     }
 
-    //cerca una rilevazione nell'archivio e poi ritorna il contenuto
-    public Optional<String> getContent(String resourceName){ // Optional perchè potrebbe avere valore o meno
+    // cerca una rilevazione nell'archivio e poi ritorna il contenuto
+    public Optional<String> getContent(String resourceName) { // Optional perchè potrebbe avere valore o meno
         lock.readLock().lock();
-        try{
+        try {
             Rilevazione r = localData.get(resourceName);
-            return r !=  null ? Optional.of(r.getContenuto()) : Optional.empty();
-        } finally{
+            return r != null ? Optional.of(r.getContenuto()) : Optional.empty();
+        } finally {
             lock.readLock().unlock();
         }
     }
