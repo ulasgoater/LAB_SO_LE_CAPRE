@@ -238,6 +238,12 @@ public class ClientRequestServiceImpl implements ClientRequestService {
             }
         }
 
+        if (downloads.isEmpty()) {
+            return DownloadResult.NOT_FOUND;
+        }
+
+        boolean anySuccess = false;
+
         // 2. FAI I P2P (FUORI DAL LOCK)
         for (DownloadInfo d : downloads) {
             String ip = d.ipPort.substring(0, d.ipPort.lastIndexOf(':'));
@@ -247,6 +253,7 @@ public class ClientRequestServiceImpl implements ClientRequestService {
             boolean success = (content != null && !content.equals("NOT_FOUND"));
 
             if (success) {
+                anySuccess = true;
                 resource.addRilevazione(new Rilevazione(d.resource, content));
 
                 // 3. MANDI ADD (DENTRO IL LOCK)
@@ -270,7 +277,7 @@ public class ClientRequestServiceImpl implements ClientRequestService {
             }
         }
 
-        return DownloadResult.SUCCESS;
+        return anySuccess ? DownloadResult.SUCCESS : DownloadResult.CONNECTION_ERROR;
     }
 
     private String performP2PDownload(String ip, int port, String resourceName) {
@@ -278,7 +285,11 @@ public class ClientRequestServiceImpl implements ClientRequestService {
                 PrintWriter peerOut = new PrintWriter(peerSocket.getOutputStream(), true);
                 BufferedReader peerIn = new BufferedReader(new InputStreamReader(peerSocket.getInputStream()))) {
             peerOut.println(resourceName);
-            return peerIn.readLine(); // may be null (EOF) or "NOT_FOUND"
+            String content = peerIn.readLine(); // may be null (EOF) or "NOT_FOUND"
+            if ("NOT_FOUND".equals(content)) {
+                return null;
+            }
+            return content;
         } catch (IOException e) {
             System.out.println("Errore di connessione P2P: " + e.getMessage());
             return null;
