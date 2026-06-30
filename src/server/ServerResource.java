@@ -8,14 +8,16 @@ import java.util.stream.Collectors;
 import common.DownloadRequest;
 
 public class ServerResource {
-    private final Map<String, Set<String>> networkData = new HashMap<>(); // Resource -> Set of Nodes
-    private final Map<String, String> nodeAddresses = new HashMap<>(); // nodeId -> "IP:Port"
-    private final List<DownloadRequest> downloadLogs = new ArrayList<>();
-    private final Map<String, DownloadLease> activeDownloads = new HashMap<>(); // key: resourceName -> lease
-    private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
-    private final Map<String, Condition> resourceConditions = new HashMap<>();
+    private final Map<String, Set<String>> networkData=new HashMap<>();//elementi che possiede un nodo
+    private final Map<String, String> nodeAddresses=new HashMap<>(); //posizione dei nodi (IP:port)
+    private final List<DownloadRequest> downloadLogs=new ArrayList<>();//storico dei download
+    private final Map<String, DownloadLease> activeDownloads=new HashMap<>();//tabella dei token attivi
+    private final ReentrantReadWriteLock lock=new ReentrantReadWriteLock();
+    private final Map<String, Condition> resourceConditions =new HashMap<>();//meccanismo di attesa
 
-    private static class DownloadLease {
+    //rappresentazione del token
+    private static class DownloadLease 
+    { 
         private final String sourceNode;
         private final String requesterId;
         private final String resourceName;
@@ -27,24 +29,24 @@ public class ServerResource {
         }
     }
 
-    public void registerNode(String nodeId, String ip, int port) {
+    //registrazione del nodo alla porta
+    public void registerNode(String nodeId,String ip,int port) {
         lock.writeLock().lock();
-        try {
-            nodeAddresses.put(nodeId, ip + ":" + port);
-        } finally {
+        try 
+        {
+            nodeAddresses.put(nodeId,ip+":"+port);
+        } finally 
+        {
             lock.writeLock().unlock();
         }
     }
 
-    public void unregisterNode(String nodeId) {
+    //rimozione del nodo
+    public void unregisterNode(String nodeId) 
+    {
         lock.writeLock().lock();
         try {
             nodeAddresses.remove(nodeId);
-            // README: "le rilevazioni non vengono eliminate dalla tabella dell'aggregatore
-            // ma non saranno più accessibili" — do NOT remove from networkData.
-            // getNetworkData() already filters by online nodes
-            // (nodeAddresses::containsKey).
-            // Clean up any active downloads involving this node
             Iterator<Map.Entry<String, DownloadLease>> iterator = activeDownloads.entrySet().iterator();
             while (iterator.hasNext()) {
                 Map.Entry<String, DownloadLease> entry = iterator.next();
@@ -53,8 +55,6 @@ public class ServerResource {
                     downloadLogs
                             .add(new DownloadRequest(lease.sourceNode, lease.requesterId, lease.resourceName, false));
                     iterator.remove();
-
-                    // Sveglia eventuali thread in attesa sulla risorsa
                     Condition condition = resourceConditions.get(lease.resourceName);
                     if (condition != null) {
                         condition.signalAll();
@@ -66,24 +66,29 @@ public class ServerResource {
         }
     }
 
-    public void addResource(String nodeId, String resource) {
+    //aggiunta di una risorsa
+    public void addResource(String nodeId, String resource){
         lock.writeLock().lock();
-        try {
+        try{
             networkData.computeIfAbsent(resource, k -> new TreeSet<>()).add(nodeId);
-        } finally {
+        }finally{
             lock.writeLock().unlock();
         }
     }
 
+    //ricerca dei nodi online
     public List<String> getOnlineNodes() {
         lock.readLock().lock();
-        try {
+        try 
+        {
             return new ArrayList<>(nodeAddresses.keySet());
-        } finally {
+        }finally 
+        {
             lock.readLock().unlock();
         }
     }
 
+    //cerca se un peer è in possesso di una risorsa
     public List<String> findOwners(String resource) {
         lock.readLock().lock();
         try {
@@ -100,7 +105,6 @@ public class ServerResource {
         }
     }
 
-    // Only show online nodes in the output (no "(offline)" suffix)
     public List<String> getNetworkData() {
         lock.readLock().lock();
         try {
@@ -124,6 +128,7 @@ public class ServerResource {
         return resourceConditions.computeIfAbsent(resource, k -> lock.writeLock().newCondition());
     }
 
+    //gestione token per download singolo
     public String requestToken(String resource, String requesterId) {
         lock.writeLock().lock();
         try {
@@ -140,7 +145,7 @@ public class ServerResource {
 
             Condition condition = getResourceCondition(resource);
 
-            // Aspetta finché il token non è libero
+            //aspetta finché il token non è libero
             while (activeDownloads.containsKey(resource)) {
                 try {
                     condition.await();
@@ -150,7 +155,7 @@ public class ServerResource {
                 }
             }
 
-            // Ri-verifica dopo l'attesa (la situazione potrebbe essere cambiata)
+            //ri-verifica dopo l'attesa (la situazione potrebbe essere cambiata)
             if (!networkData.containsKey(resource)) {
                 return "NOT_FOUND";
             }
@@ -167,44 +172,45 @@ public class ServerResource {
         }
     }
 
-    public List<String> requestTokensForNode(String targetNode, String requesterId) {
+    //gestione token per download multiplo
+    public List<String> requestTokensForNode(String targetNode, String requesterId){
         lock.writeLock().lock();
         try {
-            List<String> results = new ArrayList<>();
+            List<String> results=new ArrayList<>();
             if (!nodeAddresses.containsKey(targetNode)) {
                 return results;
             }
 
-            List<String> targetResources = new ArrayList<>();
+            List<String> targetResources=new ArrayList<>();
             for (Map.Entry<String, Set<String>> entry : networkData.entrySet()) {
-                if (entry.getValue().contains(targetNode)) {
+                if(entry.getValue().contains(targetNode)){
                     targetResources.add(entry.getKey());
                 }
             }
 
-            // Ordina per evitare deadlock quando si acquisiscono lock multipli
             Collections.sort(targetResources);
 
-            for (String resource : targetResources) {
-                Condition condition = getResourceCondition(resource);
+            for (String resource:targetResources) {
+                Condition condition=getResourceCondition(resource);
 
-                boolean interrupted = false;
-                while (activeDownloads.containsKey(resource)) {
-                    try {
+                boolean interrupted=false;
+                while(activeDownloads.containsKey(resource)) 
+                    {
+                    try{
                         condition.await();
-                    } catch (InterruptedException e) {
+                    }catch(InterruptedException e){
                         Thread.currentThread().interrupt();
                         interrupted = true;
                         break;
                     }
                 }
 
-                if (interrupted) {
+                if(interrupted) 
+                {
                     break;
                 }
 
-                // Riverifica che il nodo abbia ancora la risorsa dopo l'attesa
-                Set<String> owners = networkData.get(resource);
+                Set<String> owners=networkData.get(resource);
                 if (owners != null && owners.contains(targetNode) && nodeAddresses.containsKey(targetNode)) {
                     String ipPort = nodeAddresses.get(targetNode);
                     activeDownloads.put(resource, new DownloadLease(targetNode, requesterId, resource));
@@ -218,20 +224,19 @@ public class ServerResource {
         }
     }
 
+
     private String findOnlineOwner(String resource, String requesterId) {
         Set<String> nodes = networkData.get(resource);
         if (nodes == null) {
             return null;
         }
 
-        // Prefer a node that is not the requester
         for (String nodeId : nodes) {
             if (!nodeId.equals(requesterId) && nodeAddresses.containsKey(nodeId)) {
                 return nodeId;
             }
         }
 
-        // Fallback: allow self-download if no other owner
         for (String nodeId : nodes) {
             if (nodeAddresses.containsKey(nodeId)) {
                 return nodeId;
@@ -241,6 +246,7 @@ public class ServerResource {
         return null;
     }
 
+    //rilascio del token
     public void releaseToken(String resource, String requesterId, boolean success) {
         lock.writeLock().lock();
         try {
